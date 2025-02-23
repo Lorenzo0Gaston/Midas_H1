@@ -7,6 +7,7 @@ import MetaTrader5 as mt5
 from telegram import Bot
 from telegram.request import HTTPXRequest
 import tkinter as tk
+import time
 
 
 class Logica:
@@ -20,6 +21,10 @@ class Logica:
         self.mensaje_queue = queue.Queue()  # Cola de mensajes
         self.procesando_mensajes = False  # Bandera de procesamiento
         self.root = root  # Guardar la referencia de la ventana Tkinter
+
+        # Variables para limitar el envío de mensajes
+        self.contador_mensajes = 0  # Contador de mensajes enviados
+        self.tiempo_inicio_intervalo = None  # Tiempo de inicio del intervalo de 2 minutos
 
         # Crear un nuevo loop de eventos de asyncio
         self.loop = asyncio.new_event_loop()
@@ -46,13 +51,32 @@ class Logica:
 
     async def enviar_alerta(self, tipo, divisa):
         """Envía una alerta de compra o venta a Telegram."""
-        mensajes = {
-            "compra": f"📈 Momento de Comprar {divisa}",
-            "venta": f"📉 Momento de Vender {divisa}",
-        }
-        mensaje = mensajes.get(tipo, f"⚠️ Operación desconocida en {divisa}")
-        self.mensaje_queue.put(mensaje)
-        await self.procesar_cola_mensajes()
+        # Verificar si ha pasado el intervalo de 2 minutos
+        if self.tiempo_inicio_intervalo is not None:
+            tiempo_actual = time.time()
+            tiempo_transcurrido = tiempo_actual - self.tiempo_inicio_intervalo
+
+            # Reiniciar el contador si han pasado 2 minutos
+            if tiempo_transcurrido >= 120:  # 120 segundos = 2 minutos
+                self.contador_mensajes = 0
+                self.tiempo_inicio_intervalo = tiempo_actual
+
+        # Si el contador es menor que 2, enviar el mensaje
+        if self.contador_mensajes < 2:
+            mensajes = {
+                "compra": f"📈 Momento de Comprar {divisa}",
+                "venta": f"📉 Momento de Vender {divisa}",
+            }
+            mensaje = mensajes.get(tipo, f"⚠️ Operación desconocida en {divisa}")
+            self.mensaje_queue.put(mensaje)
+            await self.procesar_cola_mensajes()
+
+            # Incrementar el contador y registrar el tiempo de inicio del intervalo
+            self.contador_mensajes += 1
+            if self.tiempo_inicio_intervalo is None:
+                self.tiempo_inicio_intervalo = time.time()
+        else:
+            print("🟡 Límite de mensajes alcanzado. Esperando 2 minutos...")
 
     async def procesar_cola_mensajes(self):
         """Procesa los mensajes en la cola y los envía a Telegram."""
