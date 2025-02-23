@@ -57,7 +57,6 @@ class Logica:
             tiempo_transcurrido = tiempo_actual - self.tiempo_inicio_intervalo
 
             # Reiniciar el contador si han pasado 2 minutos
-            if tiempo_transcurrido >= 120:  # 120 segundos = 2 minutos
                 self.contador_mensajes = 0
                 self.tiempo_inicio_intervalo = tiempo_actual
 
