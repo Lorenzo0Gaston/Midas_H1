@@ -11,6 +11,10 @@ import time
 from PIL import ImageGrab  # Para capturar la pantalla
 import io  # Para manejar la imagen en memoria
 import pygetwindow as gw  # Para interactuar con ventanas
+import logging  # Para registrar errores
+
+# Configurar logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 class Logica:
     def __init__(self, root):
@@ -53,38 +57,41 @@ class Logica:
 
     async def enviar_alerta(self, tipo, divisa):
         """Envía una alerta de compra o venta a Telegram junto con una captura de la ventana del gráfico."""
-        # Verificar si ha pasado el intervalo de 5 minutos
-        if self.tiempo_inicio_intervalo is not None:
-            tiempo_actual = time.time()
-            tiempo_transcurrido = tiempo_actual - self.tiempo_inicio_intervalo
+        try:
+            # Verificar si ha pasado el intervalo de 5 minutos
+            if self.tiempo_inicio_intervalo is not None:
+                tiempo_actual = time.time()
+                tiempo_transcurrido = tiempo_actual - self.tiempo_inicio_intervalo
 
-            # Reiniciar el contador si han pasado 2 minutos
-            if tiempo_transcurrido >= 300:  # 300 segundos = 5 minutos
-                self.contador_mensajes = 0
-                self.tiempo_inicio_intervalo = tiempo_actual
+                # Reiniciar el contador si han pasado 2 minutos
+                if tiempo_transcurrido >= 300:  # 300 segundos = 5 minutos
+                    self.contador_mensajes = 0
+                    self.tiempo_inicio_intervalo = tiempo_actual
 
-        # Si el contador es menor que 2, enviar el mensaje y la captura de pantalla
-        if self.contador_mensajes < 2:
-            mensajes = {
-                "compra": f"📈 Momento de Comprar {divisa}",
-                "venta": f"📉 Momento de Vender {divisa}",
-            }
-            mensaje = mensajes.get(tipo, f"⚠️ Operación desconocida en {divisa}")
-            self.mensaje_queue.put(mensaje)
+            # Si el contador es menor que 2, enviar el mensaje y la captura de pantalla
+            if self.contador_mensajes < 2:
+                mensajes = {
+                    "compra": f"📈 Momento de Comprar {divisa}",
+                    "venta": f"📉 Momento de Vender {divisa}",
+                }
+                mensaje = mensajes.get(tipo, f"⚠️ Operación desconocida en {divisa}")
+                self.mensaje_queue.put(mensaje)
 
-            # Capturar la ventana del gráfico
-            captura = self.capturar_ventana_grafico(divisa)
-            if captura:
-                self.mensaje_queue.put(captura)  # Añadir la captura a la cola
+                # Capturar la ventana del gráfico en un hilo separado
+                captura = await asyncio.to_thread(self.capturar_ventana_grafico, divisa)
+                if captura:
+                    self.mensaje_queue.put(captura)  # Añadir la captura a la cola
 
-            await self.procesar_cola_mensajes()
+                await self.procesar_cola_mensajes()
 
-            # Incrementar el contador y registrar el tiempo de inicio del intervalo
-            self.contador_mensajes += 1
-            if self.tiempo_inicio_intervalo is None:
-                self.tiempo_inicio_intervalo = time.time()
-        else:
-            print("🟡 Límite de mensajes alcanzado. Esperando 2 minutos...")
+                # Incrementar el contador y registrar el tiempo de inicio del intervalo
+                self.contador_mensajes += 1
+                if self.tiempo_inicio_intervalo is None:
+                    self.tiempo_inicio_intervalo = tiempo_actual
+            else:
+                logging.info("🟡 Límite de mensajes alcanzado. Esperando 2 minutos...")
+        except Exception as e:
+            logging.error(f"Error en enviar_alerta: {e}")
 
     def capturar_ventana_grafico(self, divisa):
         """Captura la ventana del gráfico específico."""
@@ -109,10 +116,10 @@ class Logica:
 
                 return imagen_bytes
             else:
-                print(f"No se encontró la ventana del gráfico para {divisa}.")
+                logging.warning(f"No se encontró la ventana del gráfico para {divisa}.")
                 return None
         except Exception as e:
-            print(f"Error al capturar la ventana del gráfico: {e}")
+            logging.error(f"Error al capturar la ventana del gráfico: {e}")
             return None
 
     async def procesar_cola_mensajes(self):
@@ -124,19 +131,19 @@ class Logica:
                 try:
                     if isinstance(mensaje, io.BytesIO):  # Si es una imagen
                         await self.bot.send_photo(chat_id="-4731258133", photo=mensaje)
-                        print("Captura de la ventana del gráfico enviada a Telegram.")
+                        logging.info("Captura de la ventana del gráfico enviada a Telegram.")
                     else:  # Si es un mensaje de texto
                         await self.bot.send_message(chat_id="-4731258133", text=mensaje)
-                        print(f"Mensaje enviado a Telegram: {mensaje}")
+                        logging.info(f"Mensaje enviado a Telegram: {mensaje}")
                 except Exception as e:
-                    print(f"Error enviando mensaje o imagen por Telegram: {e}")
+                    logging.error(f"Error enviando mensaje o imagen por Telegram: {e}")
             self.procesando_mensajes = False
 
     async def ejecutar_trading_en_tiempo_real(self, simbolo, timeframe, lote, stop_loss, take_profit):
         """Ejecuta el trading en tiempo real en un bucle asincrónico."""
-        print("✅ Iniciando el bucle de trading en tiempo real...")
+        logging.info("✅ Iniciando el bucle de trading en tiempo real...")
         while True:
-            print("🔄 Obteniendo datos del mercado...")
+            logging.info("🔄 Obteniendo datos del mercado...")
             rates = mt5.copy_rates_from_pos(simbolo, timeframe, 0, 1)
             if rates is not None:
                 data = pd.DataFrame(rates)
@@ -147,11 +154,11 @@ class Logica:
                 signal_change = data['Signal_Change'].iloc[-1]  # Cambio de señal
 
                 if signal_change and ultima_senal != self.ultima_senal_enviada:
-                    print(f"⚡ Cambio de señal detectado: {ultima_senal}")
+                    logging.info(f"⚡ Cambio de señal detectado: {ultima_senal}")
                     await self.enviar_alerta(ultima_senal, simbolo)
                     self.ultima_senal_enviada = ultima_senal
                 else:
-                    print(f"🟡 No hay cambio de señal. Última señal: {self.ultima_senal_enviada}")
+                    logging.info(f"🟡 No hay cambio de señal. Última señal: {self.ultima_senal_enviada}")
 
             await asyncio.sleep(60)  # Esperar 1 minuto antes de la siguiente iteración
 
@@ -170,8 +177,8 @@ class Logica:
         # Detectar cambios en la señal
         data['Signal_Change'] = data['Signal'].ne(data['Signal'].shift())
         
-        print(f"📊 Última señal: {data['Signal'].iloc[-1]}")
-        print(f"🔄 Cambio de señal: {data['Signal_Change'].iloc[-1]}")
+        logging.info(f"📊 Última señal: {data['Signal'].iloc[-1]}")
+        logging.info(f"🔄 Cambio de señal: {data['Signal_Change'].iloc[-1]}")
         
         return data
 
