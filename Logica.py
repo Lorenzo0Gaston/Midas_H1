@@ -8,7 +8,9 @@ from telegram import Bot
 from telegram.request import HTTPXRequest
 import tkinter as tk
 import time
-
+from PIL import ImageGrab  # Para capturar la pantalla
+import io  # Para manejar la imagen en memoria
+import pygetwindow as gw  # Para interactuar con ventanas
 
 class Logica:
     def __init__(self, root):
@@ -50,18 +52,18 @@ class Logica:
         await self.procesar_cola_mensajes()
 
     async def enviar_alerta(self, tipo, divisa):
-        """Envía una alerta de compra o venta a Telegram."""
-        # Verificar si ha pasado el intervalo de 2 minutos
+        """Envía una alerta de compra o venta a Telegram junto con una captura de la ventana del gráfico."""
+        # Verificar si ha pasado el intervalo de 5 minutos
         if self.tiempo_inicio_intervalo is not None:
             tiempo_actual = time.time()
             tiempo_transcurrido = tiempo_actual - self.tiempo_inicio_intervalo
 
             # Reiniciar el contador si han pasado 2 minutos
-            if tiempo_transcurrido >= 240:  # 120 segundos = 4 minutos
+            if tiempo_transcurrido >= 300:  # 300 segundos = 5 minutos
                 self.contador_mensajes = 0
                 self.tiempo_inicio_intervalo = tiempo_actual
 
-        # Si el contador es menor que 2, enviar el mensaje
+        # Si el contador es menor que 2, enviar el mensaje y la captura de pantalla
         if self.contador_mensajes < 2:
             mensajes = {
                 "compra": f"📈 Momento de Comprar {divisa}",
@@ -69,6 +71,12 @@ class Logica:
             }
             mensaje = mensajes.get(tipo, f"⚠️ Operación desconocida en {divisa}")
             self.mensaje_queue.put(mensaje)
+
+            # Capturar la ventana del gráfico
+            captura = self.capturar_ventana_grafico(divisa)
+            if captura:
+                self.mensaje_queue.put(captura)  # Añadir la captura a la cola
+
             await self.procesar_cola_mensajes()
 
             # Incrementar el contador y registrar el tiempo de inicio del intervalo
@@ -78,6 +86,35 @@ class Logica:
         else:
             print("🟡 Límite de mensajes alcanzado. Esperando 2 minutos...")
 
+    def capturar_ventana_grafico(self, divisa):
+        """Captura la ventana del gráfico específico."""
+        try:
+            # Obtener todas las ventanas abiertas
+            ventanas = gw.getWindowsWithTitle(f"Gráficos de Trading - {divisa}")
+
+            if ventanas:
+                # Tomar la primera ventana que coincida con el título
+                ventana = ventanas[0]
+
+                # Obtener las coordenadas de la ventana
+                left, top, right, bottom = ventana.left, ventana.top, ventana.right, ventana.bottom
+
+                # Capturar la región de la ventana
+                captura = ImageGrab.grab(bbox=(left, top, right, bottom))
+
+                # Guardar la captura en un objeto BytesIO
+                imagen_bytes = io.BytesIO()
+                captura.save(imagen_bytes, format="PNG")
+                imagen_bytes.seek(0)  # Reiniciar el puntero al inicio del archivo
+
+                return imagen_bytes
+            else:
+                print(f"No se encontró la ventana del gráfico para {divisa}.")
+                return None
+        except Exception as e:
+            print(f"Error al capturar la ventana del gráfico: {e}")
+            return None
+
     async def procesar_cola_mensajes(self):
         """Procesa los mensajes en la cola y los envía a Telegram."""
         if not self.procesando_mensajes:
@@ -85,10 +122,14 @@ class Logica:
             while not self.mensaje_queue.empty():
                 mensaje = self.mensaje_queue.get()
                 try:
-                    await self.bot.send_message(chat_id="-4731258133", text=mensaje)
-                    print(f"Mensaje enviado a Telegram: {mensaje}")
+                    if isinstance(mensaje, io.BytesIO):  # Si es una imagen
+                        await self.bot.send_photo(chat_id="-4731258133", photo=mensaje)
+                        print("Captura de la ventana del gráfico enviada a Telegram.")
+                    else:  # Si es un mensaje de texto
+                        await self.bot.send_message(chat_id="-4731258133", text=mensaje)
+                        print(f"Mensaje enviado a Telegram: {mensaje}")
                 except Exception as e:
-                    print(f"Error enviando mensaje por Telegram: {e}")
+                    print(f"Error enviando mensaje o imagen por Telegram: {e}")
             self.procesando_mensajes = False
 
     async def ejecutar_trading_en_tiempo_real(self, simbolo, timeframe, lote, stop_loss, take_profit):
