@@ -97,13 +97,18 @@ class AplicacionTrading:
             canvas = FigureCanvasTkAgg(fig, master=ventana_actual["frame_graficos"])
             canvas.draw()
             ventana_actual["graficos"][divisa] = {"fig": fig, "ax": ax, "canvas": canvas}
-            num_graficos = len(ventana_actual["frame_graficos"].grid_slaves())
+
+            #  Contar gráficos existentes en la ventana, usando el diccionario graficos.
+            num_graficos = len(ventana_actual["graficos"])
             posiciones = [(0, 0), (0, 1), (1, 0), (1, 1)]
-            if num_graficos < 4:
-                fila, columna = posiciones[num_graficos]
+
+            if num_graficos <= 4:  # Solo agregamos hasta 4 gráficos por ventana
+                fila, columna = posiciones[num_graficos -1] #el -1 es porque num_graficos empieza en 1, y la lista posiciones en 0.
                 canvas.get_tk_widget().grid(row=fila, column=columna, padx=10, pady=10, sticky="nsew")
+                canvas.get_tk_widget().update_idletasks() #Forzar la actualizacion.
             else:
                 messagebox.showwarning("Límite alcanzado", "No se pueden agregar más de 4 gráficos en una ventana.")
+
         except Exception as e:
             messagebox.showerror("Error", f"Se produjo un error: {str(e)}")
 
