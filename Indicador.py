@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import MetaTrader5 as mt5
+from datetime import datetime, timedelta
 
 class Indicadores:
     def __init__(self):
@@ -9,7 +10,8 @@ class Indicadores:
             print("Error al inicializar MetaTrader 5. Verifica la conexión.")
             quit()
 
-    def obtener_datos(self, simbolo, intervalo, n_candles):
+    def obtener_datos(self, simbolo, intervalo, horas=12):
+        """Obtiene los datos históricos de las últimas 12 horas."""
         timeframe_dict = {
             "1H": mt5.TIMEFRAME_H1,  # 1 hora
             "4H": mt5.TIMEFRAME_H4,  # 4 horas
@@ -19,9 +21,23 @@ class Indicadores:
         if intervalo not in timeframe_dict:
             raise ValueError(f"El intervalo '{intervalo}' no es soportado. Usa uno de: {list(timeframe_dict.keys())}")
 
+        # Calcular el número de velas necesarias para las últimas 12 horas
+        if intervalo == "1H":
+            n_candles = horas  # 12 velas para 12 horas
+        elif intervalo == "4H":
+            n_candles = horas // 4  # 3 velas para 12 horas
+        elif intervalo == "1D":
+            n_candles = 1  # 1 vela para 12 horas (redondeo)
+
         try:
-            # Obtener datos históricos
-            rates = mt5.copy_rates_from_pos(simbolo, timeframe_dict[intervalo], 0, n_candles)
+            # Obtener la hora actual
+            ahora = datetime.now()
+
+            # Calcular la hora de inicio (hace 12 horas)
+            inicio = ahora - timedelta(hours=horas)
+
+            # Obtener datos históricos desde la hora de inicio
+            rates = mt5.copy_rates_from(simbolo, timeframe_dict[intervalo], inicio, n_candles)
             if rates is None:
                 raise ValueError(f"No se obtuvieron datos para el símbolo {simbolo} y timeframe {intervalo}.")
 
