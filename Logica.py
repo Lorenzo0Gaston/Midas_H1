@@ -43,21 +43,34 @@ class Logica:
         await self.procesar_cola_mensajes()
 
     async def enviar_alerta(self, tipo, divisa):
+        """Envía una alerta de compra o venta a Telegram junto con una captura de la ventana del gráfico."""
         try:
             if self.tiempo_inicio_intervalo is not None:
                 tiempo_actual = time.time()
                 tiempo_transcurrido = tiempo_actual - self.tiempo_inicio_intervalo
-                if tiempo_transcurrido >= 300:
+
+                # Reiniciar el contador si han pasado 5 minutos
+                if tiempo_transcurrido >= 300:  # 300 segundos = 5 minutos
                     self.contador_mensajes = 0
                     self.tiempo_inicio_intervalo = tiempo_actual
+
+            # Si el contador es menor que 2, enviar el mensaje y la captura de pantalla
             if self.contador_mensajes < 2:
-                mensajes = {"compra": f" Momento de Comprar {divisa}", "venta": f" Momento de Vender {divisa}"}
+                mensajes = {
+                    "compra": f"📈 Momento de Comprar {divisa}",
+                    "venta": f"📉 Momento de Vender {divisa}",
+                }
                 mensaje = mensajes.get(tipo, f"⚠️ Operación desconocida en {divisa}")
                 self.mensaje_queue.put(mensaje)
+
+                # Capturar la ventana del gráfico solo si se envía un mensaje
                 captura = await asyncio.to_thread(self.capturar_ventana_grafico, divisa)
                 if captura:
-                    self.mensaje_queue.put(captura)
+                    self.mensaje_queue.put(captura)  # Añadir la captura a la cola
+
                 await self.procesar_cola_mensajes()
+
+                # Incrementar el contador y registrar el tiempo de inicio del intervalo
                 self.contador_mensajes += 1
                 if self.tiempo_inicio_intervalo is None:
                     self.tiempo_inicio_intervalo = tiempo_actual
@@ -65,6 +78,7 @@ class Logica:
                 logging.info("🟡 Límite de mensajes alcanzado. Esperando 5 minutos...")
         except Exception as e:
             logging.error(f"Error en enviar_alerta: {e}")
+
 
     def capturar_ventana_grafico(self, divisa):
         try:
