@@ -18,7 +18,7 @@ class AplicacionTrading:
 
         # Lista de divisas disponibles
         self.divisas = ["XAUUSD", "AUDUSD", "USDCAD", "EURUSD", "GBPUSD",
-                        "USDOIL", "USDJPY", "NZDUSD", "GBPCHF", "US30"]
+                        "USDOIL", "USDJPY", "NZDUSD", "GBPCHF", "US30", "US500M"]
 
         # Elementos de la GUI
         self.frame_ordenes = tk.Frame(root)
