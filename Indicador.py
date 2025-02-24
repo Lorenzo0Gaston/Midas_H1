@@ -54,16 +54,16 @@ class Indicadores:
         """Calcula indicadores como EMA y señales de compra/venta."""
         if data.empty:
             raise ValueError("El dataframe está vacío. No se pueden calcular indicadores.")
-        
+
         # Calcular las EMAs
         data['EMA_8'] = data['close'].ewm(span=8).mean()
         data['EMA_21'] = data['close'].ewm(span=21).mean()
         data['EMA_100'] = data['close'].ewm(span=100).mean()  # Nueva EMA 100
-        
+
         # Determinar la señal actual
         data['Signal'] = np.where(data['EMA_8'] > data['EMA_21'], 'compra', 'venta')
-        
+
         # Detectar cambios en la señal
         data['Signal_Change'] = data['Signal'].ne(data['Signal'].shift())
-        
+
         return data
