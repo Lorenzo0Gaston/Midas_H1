@@ -138,36 +138,73 @@ class AplicacionTrading:
         except Exception as e:
             messagebox.showerror("Error", f"Se produjo un error: {str(e)}")
 
-    def actualizar_canvas(self, ventana_actual, divisa, data_filtrada):
-        grafico = ventana_actual["graficos"][divisa]
-        ax = grafico["ax"]
-        canvas = grafico["canvas"]
-        ax.clear()
-        ax.plot(data_filtrada['time'], data_filtrada['close'], label="Precio", color='black')
-        ax.plot(data_filtrada['time'], data_filtrada['EMA_8'], label="EMA 8", color='orange')
-        ax.plot(data_filtrada['time'], data_filtrada['EMA_21'], label="EMA 21", color='green')
-        ax.plot(data_filtrada['time'], data_filtrada['EMA_100'], label="EMA 100", color='red')
-        ax.text(0.02, 0.95, f"Símbolo: {divisa}", transform=ax.transAxes, fontsize=9, color='blue', backgroundcolor='white', alpha=0.8)
-        ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
-        ax.xaxis.set_major_locator(mdates.HourLocator(interval=1))
-        plt.xticks(rotation=45)
-        ax.legend()
-        plt.tight_layout()
-        canvas.draw()
+    def actualizar_grafico(self, ventana_actual, divisa, timeframe):
+        """Actualiza el gráfico con nuevos datos."""
+        try:
+            # Obtener datos actualizados del mercado
+            data = self.indicadores.obtener_datos(divisa, timeframe, 100)
+            if data.empty:
+                raise ValueError("No se obtuvieron datos del servidor. Verifica el símbolo y el timeframe.")
 
-        ultima_senal = data_filtrada['Signal'].iloc[-1]
-        signal_change = data_filtrada['Signal_Change'].iloc[-1]
+            # Calcular indicadores
+            data = self.indicadores.calcular_indicadores(data)
 
-        if signal_change:
-            future = asyncio.run_coroutine_threadsafe(
-                self.logica.enviar_alerta(ultima_senal, divisa), self.loop
+            # Filtrar los datos para mostrar solo las últimas 12 horas
+            ultima_hora = data['time'].iloc[-1]  # Última hora en los datos
+            inicio_ventana = ultima_hora - pd.Timedelta(hours=12)  # Hace 12 horas desde la última hora
+            data_filtrada = data[data['time'] >= inicio_ventana]  # Filtrar datos
+
+            # Obtener el gráfico existente
+            grafico = ventana_actual["graficos"][divisa]
+            ax = grafico["ax"]
+            canvas = grafico["canvas"]
+
+            # Limpiar el eje antes de volver a dibujar
+            ax.clear()
+
+            # Dibujar el gráfico actualizado
+            ax.plot(data_filtrada['time'], data_filtrada['close'], label="Precio", color='black')
+            ax.plot(data_filtrada['time'], data_filtrada['EMA_8'], label="EMA 8", color='orange')
+            ax.plot(data_filtrada['time'], data_filtrada['EMA_21'], label="EMA 21", color='green')
+            ax.plot(data_filtrada['time'], data_filtrada['EMA_100'], label="EMA 100", color='red')
+
+            # Agregar el símbolo de la divisa en el gráfico
+            ax.text(
+                0.02, 0.95, f"Símbolo: {divisa}", transform=ax.transAxes,
+                fontsize=9, color='blue', backgroundcolor='white', alpha=0.8
             )
-            future.result()
 
-        timeframe = "1H"
-        self.root.after(self.intervalo_actualizacion, lambda ventana=ventana_actual, divisa=divisa, timeframe=timeframe: self.actualizar_grafico(ventana, divisa, timeframe))
+            # Formatear el eje x para mostrar horas
+            ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+            ax.xaxis.set_major_locator(mdates.HourLocator(interval=1))
 
+            # Rotar etiquetas del eje x
+            plt.xticks(rotation=45)
 
+            # Añadir leyenda
+            ax.legend()
+            plt.tight_layout()
+
+            # Redibujar el canvas
+            canvas.draw()
+
+            # Verificar si hay un cruce de indicadores
+            ultima_senal = data['Signal'].iloc[-1]
+            signal_change = data['Signal_Change'].iloc[-1]
+
+            if signal_change:
+                # Ejecutar la corrutina en el bucle de eventos de asyncio
+                future = asyncio.run_coroutine_threadsafe(
+                    self.logica.enviar_alerta(ultima_senal, divisa), self.loop
+                )
+                # Manejar el futuro para evitar advertencias
+                future.result()  # Esto espera a que la corrutina termine
+
+            # Programar la próxima actualización
+            self.root.after(self.intervalo_actualizacion, lambda: self.actualizar_grafico(ventana_actual, divisa, timeframe))
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Se produjo un error: {str(e)}")
 
 if __name__ == "__main__":
     root = tk.Tk()
