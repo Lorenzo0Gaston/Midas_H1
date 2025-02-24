@@ -164,7 +164,7 @@ class AplicacionTrading:
             )
             future.result()
 
-        timeframe = "1h"  # O cualquier otro valor válido
+        timeframe = "1H"
         self.root.after(self.intervalo_actualizacion, lambda ventana=ventana_actual, divisa=divisa, timeframe=timeframe: self.actualizar_grafico(ventana, divisa, timeframe))
 
 
