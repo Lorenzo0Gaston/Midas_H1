@@ -18,7 +18,7 @@ class AplicacionTrading:
         self.logica = Logica(self.root)
 
         self.divisas = ["XAUUSD", "AUDUSD", "USDCAD", "EURUSD", "GBPUSD", 
-                        "USO", "USDJPY", "NZDUSD", "GBPCHF", "US30", "US500M"]
+                         "USO", "USDJPY", "NZDUSD", "GBPCHF", "US30", "US500M"]
         
         self.frame_ordenes = tk.Frame(root)
         self.frame_ordenes.pack(side=tk.LEFT, padx=10)
@@ -44,6 +44,7 @@ class AplicacionTrading:
         self.ventana_ancho = 1200
         self.ventana_alto = 800
         self.intervalo_actualizacion = 5000
+
         self.loop = asyncio.new_event_loop()
         threading.Thread(target=self.start_loop, args=(self.loop,), daemon=True).start()
         self.executor = ThreadPoolExecutor(max_workers=4)
@@ -55,6 +56,7 @@ class AplicacionTrading:
     def añadir_grafico(self):
         divisa = self.combo_divisas.get()
         timeframe = self.combo_timeframe.get()
+        
         for ventana in self.ventanas_graficos:
             if divisa in ventana["divisas"]:
                 messagebox.showwarning("Advertencia", f"La divisa {divisa} ya está siendo mostrada.")
@@ -83,34 +85,38 @@ class AplicacionTrading:
             ultima_hora = data['time'].iloc[-1]
             inicio_ventana = ultima_hora - pd.Timedelta(hours=12)
             data_filtrada = data[data['time'] >= inicio_ventana]
-            fig, ax = plt.subplots(figsize=(6, 3))
-            ax.plot(data_filtrada['time'], data_filtrada['close'], label="Precio", color='black')
-            ax.plot(data_filtrada['time'], data_filtrada['EMA_8'], label="EMA 8", color='orange')
-            ax.plot(data_filtrada['time'], data_filtrada['EMA_21'], label="EMA 21", color='green')
-            ax.plot(data_filtrada['time'], data_filtrada['EMA_100'], label="EMA 100", color='red')
-            ax.text(0.02, 0.95, f"Símbolo: {divisa}", transform=ax.transAxes, fontsize=9, color='blue', backgroundcolor='white', alpha=0.8)
-            ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
-            ax.xaxis.set_major_locator(mdates.HourLocator(interval=1))
-            plt.xticks(rotation=45)
-            ax.legend()
-            plt.tight_layout()
-            canvas = FigureCanvasTkAgg(fig, master=ventana_actual["frame_graficos"])
-            canvas.draw()
-            ventana_actual["graficos"][divisa] = {"fig": fig, "ax": ax, "canvas": canvas}
 
-            #  Contar gráficos existentes en la ventana, usando el diccionario graficos.
-            num_graficos = len(ventana_actual["graficos"])
-            posiciones = [(0, 0), (0, 1), (1, 0), (1, 1)]
-
-            if num_graficos <= 4:  # Solo agregamos hasta 4 gráficos por ventana
-                fila, columna = posiciones[num_graficos -1] #el -1 es porque num_graficos empieza en 1, y la lista posiciones en 0.
-                canvas.get_tk_widget().grid(row=fila, column=columna, padx=10, pady=10, sticky="nsew")
-                canvas.get_tk_widget().update_idletasks() #Forzar la actualizacion.
-            else:
-                messagebox.showwarning("Límite alcanzado", "No se pueden agregar más de 4 gráficos en una ventana.")
+            # Programar la creación del gráfico en el hilo principal de Tkinter
+            self.root.after(0, lambda: self.crear_grafico(ventana_actual, divisa, data_filtrada))
 
         except Exception as e:
             messagebox.showerror("Error", f"Se produjo un error: {str(e)}")
+
+    def crear_grafico(self, ventana_actual, divisa, data_filtrada):
+        fig, ax = plt.subplots(figsize=(6, 3))
+        ax.plot(data_filtrada['time'], data_filtrada['close'], label="Precio", color='black')
+        ax.plot(data_filtrada['time'], data_filtrada['EMA_8'], label="EMA 8", color='orange')
+        ax.plot(data_filtrada['time'], data_filtrada['EMA_21'], label="EMA 21", color='green')
+        ax.plot(data_filtrada['time'], data_filtrada['EMA_100'], label="EMA 100", color='red')
+        ax.text(0.02, 0.95, f"Símbolo: {divisa}", transform=ax.transAxes, fontsize=9, color='blue', backgroundcolor='white', alpha=0.8)
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+        ax.xaxis.set_major_locator(mdates.HourLocator(interval=1))
+        plt.xticks(rotation=45)
+        ax.legend()
+        plt.tight_layout()
+        canvas = FigureCanvasTkAgg(fig, master=ventana_actual["frame_graficos"])
+        canvas.draw()
+        ventana_actual["graficos"][divisa] = {"fig": fig, "ax": ax, "canvas": canvas}
+
+        num_graficos = len(ventana_actual["graficos"])
+        posiciones = [(0, 0), (0, 1), (1, 0), (1, 1)]
+
+        if num_graficos <= 4:
+            fila, columna = posiciones[num_graficos - 1]
+            canvas.get_tk_widget().grid(row=fila, column=columna, padx=10, pady=10, sticky="nsew")
+            canvas.get_tk_widget().update_idletasks()
+        else:
+            messagebox.showwarning("Límite alcanzado", "No se pueden agregar más de 4 gráficos en una ventana.")
 
     def actualizar_grafico(self, ventana_actual, divisa, timeframe):
         asyncio.run_coroutine_threadsafe(self.async_actualizar_grafico(ventana_actual, divisa, timeframe), self.loop)
@@ -124,38 +130,40 @@ class AplicacionTrading:
             ultima_hora = data['time'].iloc[-1]
             inicio_ventana = ultima_hora - pd.Timedelta(hours=12)
             data_filtrada = data[data['time'] >= inicio_ventana]
-            grafico = ventana_actual["graficos"][divisa]
-            ax = grafico["ax"]
-            canvas = grafico["canvas"]
-            ax.clear()
-            ax.plot(data_filtrada['time'], data_filtrada['close'], label="Precio", color='black')
-            ax.plot(data_filtrada['time'], data_filtrada['EMA_8'], label="EMA 8", color='orange')
-            ax.plot(data_filtrada['time'], data_filtrada['EMA_21'], label="EMA 21", color='green')
-            ax.plot(data_filtrada['time'], data_filtrada['EMA_100'], label="EMA 100", color='red')
-            ax.text(0.02, 0.95, f"Símbolo: {divisa}", transform=ax.transAxes, fontsize=9, color='blue', backgroundcolor='white', alpha=0.8)
-            ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
-            ax.xaxis.set_major_locator(mdates.HourLocator(interval=1))
-            plt.xticks(rotation=45)
-            ax.legend()
-            plt.tight_layout()
-            canvas.draw()
-            # Programar la próxima actualización
-            self.root.after(self.intervalo_actualizacion, lambda: self.actualizar_grafico(ventana_actual, divisa, timeframe))
 
-            # Verificar si hay un cruce de indicadores
-            ultima_senal = data['Signal'].iloc[-1]
-            signal_change = data['Signal_Change'].iloc[-1]
-
-            if signal_change:
-                # Ejecutar la corrutina en el bucle de eventos de asyncio
-                future = asyncio.run_coroutine_threadsafe(
-                    self.logica.enviar_alerta(ultima_senal, divisa), self.loop
-                )
-                # Manejar el futuro para evitar advertencias
-                future.result()  # Esto espera a que la corrutina termine
+            # Programar la actualización del gráfico en el hilo principal de Tkinter
+            self.root.after(0, lambda: self.actualizar_canvas(ventana_actual, divisa, data_filtrada))
 
         except Exception as e:
             messagebox.showerror("Error", f"Se produjo un error: {str(e)}")
+
+    def actualizar_canvas(self, ventana_actual, divisa, data_filtrada):
+        grafico = ventana_actual["graficos"][divisa]
+        ax = grafico["ax"]
+        canvas = grafico["canvas"]
+        ax.clear()
+        ax.plot(data_filtrada['time'], data_filtrada['close'], label="Precio", color='black')
+        ax.plot(data_filtrada['time'], data_filtrada['EMA_8'], label="EMA 8", color='orange')
+        ax.plot(data_filtrada['time'], data_filtrada['EMA_21'], label="EMA 21", color='green')
+        ax.plot(data_filtrada['time'], data_filtrada['EMA_100'], label="EMA 100", color='red')
+        ax.text(0.02, 0.95, f"Símbolo: {divisa}", transform=ax.transAxes, fontsize=9, color='blue', backgroundcolor='white', alpha=0.8)
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+        ax.xaxis.set_major_locator(mdates.HourLocator(interval=1))
+        plt.xticks(rotation=45)
+        ax.legend()
+        plt.tight_layout()
+        canvas.draw()
+
+        ultima_senal = data_filtrada['Signal'].iloc[-1]
+        signal_change = data_filtrada['Signal_Change'].iloc[-1]
+
+        if signal_change:
+            future = asyncio.run_coroutine_threadsafe(
+                self.logica.enviar_alerta(ultima_senal, divisa), self.loop
+            )
+            future.result()
+
+        self.root.after(self.intervalo_actualizacion, lambda: self.actualizar_grafico(ventana_actual, divisa, timeframe))
 
 if __name__ == "__main__":
     root = tk.Tk()
