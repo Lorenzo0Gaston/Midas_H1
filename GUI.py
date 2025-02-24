@@ -1,3 +1,4 @@
+from inspect import isframe
 import tkinter as tk
 from tkinter import ttk, messagebox
 from matplotlib import pyplot as plt
@@ -55,7 +56,7 @@ class AplicacionTrading:
 
     def añadir_grafico(self):
         divisa = self.combo_divisas.get()
-        timeframe = self.combo_timeframe.get()
+        timeframe = self.combo_timeframe.get()  # Definir timeframe aquí
         
         for ventana in self.ventanas_graficos:
             if divisa in ventana["divisas"]:
@@ -71,7 +72,7 @@ class AplicacionTrading:
         ventana_actual = self.ventanas_graficos[-1]
         ventana_actual["divisas"].append(divisa)
         self.mostrar_grafico(ventana_actual, divisa, timeframe)
-        self.root.after(self.intervalo_actualizacion, lambda: self.actualizar_grafico(ventana_actual, divisa, timeframe))
+        self.root.after(self.intervalo_actualizacion, lambda ventana=ventana_actual, divisa=divisa, timeframe=timeframe: self.actualizar_grafico(ventana, divisa, timeframe)) #Usar timeframe definido
 
     def mostrar_grafico(self, ventana_actual, divisa, timeframe):
         asyncio.run_coroutine_threadsafe(self.async_mostrar_grafico(ventana_actual, divisa, timeframe), self.loop)
@@ -163,7 +164,10 @@ class AplicacionTrading:
             )
             future.result()
 
-        self.root.after(self.intervalo_actualizacion, lambda: self.actualizar_grafico(ventana_actual, divisa, timeframe))
+        timeframe = "1h"  # O cualquier otro valor válido
+        self.root.after(self.intervalo_actualizacion, lambda ventana=ventana_actual, divisa=divisa, timeframe=timeframe: self.actualizar_grafico(ventana, divisa, timeframe))
+
+
 
 if __name__ == "__main__":
     root = tk.Tk()
