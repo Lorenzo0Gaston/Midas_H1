@@ -50,8 +50,8 @@ class AplicacionTrading:
         self.ventana_ancho = 1200  # Ancho de la ventana
         self.ventana_alto = 800    # Alto de la ventana
 
-        # Intervalo de actualización en milisegundos (por ejemplo, 5000 ms = 5 segundos)
-        self.intervalo_actualizacion = 5000
+        # Intervalo de actualización en milisegundos (por ejemplo, 10000 ms = 10 segundos)
+        self.intervalo_actualizacion = 10000
 
         # Iniciar el bucle de eventos de asyncio en un hilo separado
         self.loop = asyncio.new_event_loop()
