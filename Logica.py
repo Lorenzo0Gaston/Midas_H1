@@ -113,6 +113,13 @@ class Logica:
             # Calcular indicadores
             data = self.indicadores.calcular_indicadores(data)
 
+            # Asegurar que 'time' esté en formato datetime
+            if not pd.api.types.is_datetime64_any_dtype(data['time']):
+                data['time'] = pd.to_datetime(data['time'])
+
+            # Convertir la columna 'time' a UTC-5 (Horario de Nueva York)
+            data['time'] = data['time'].dt.tz_localize('UTC').dt.tz_convert('America/New_York')
+
             # Crear una nueva figura y ejes
             fig, ax = plt.subplots(figsize=(8, 4))
 
