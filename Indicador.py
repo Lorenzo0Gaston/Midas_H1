@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import MetaTrader5 as mt5
 from datetime import datetime, timedelta
+import pytz  # Necesitas instalar pytz: pip install pytz
 
 class Indicadores:
     def __init__(self):
@@ -30,8 +31,8 @@ class Indicadores:
             n_candles = 1  # 1 vela para 12 horas (redondeo)
 
         try:
-            # Obtener la hora actual
-            ahora = datetime.now()
+            # Obtener la hora actual en UTC
+            ahora = datetime.now(pytz.utc)
 
             # Calcular la hora de inicio (hace 12 horas)
             inicio = ahora - timedelta(hours=horas)
@@ -44,6 +45,10 @@ class Indicadores:
             # Convertir a DataFrame
             data = pd.DataFrame(rates)
             data['time'] = pd.to_datetime(data['time'], unit='s')
+
+            # Convertir la hora a UTC-5 (Horario de Nueva York)
+            data['time'] = data['time'].dt.tz_localize('UTC').dt.tz_convert('America/New_York')
+
             return data
 
         except Exception as e:

@@ -13,8 +13,8 @@ class AplicacionTrading:
     def __init__(self, root):
         self.root = root
         self.root.title("Aplicación de Trading")
-        self.indicadores = Indicadores()
-        self.logica = Logica(self.root)
+        self.indicadores = Indicadores()  # Crear instancia de Indicadores
+        self.logica = Logica(self.root, self.indicadores)  # Pasar Indicadores a Logica
 
         # Lista de divisas disponibles
         self.divisas = ["XAUUSD", "AUDUSD", "USDCAD", "EURUSD", "GBPUSD",
@@ -112,9 +112,9 @@ class AplicacionTrading:
             data = self.indicadores.calcular_indicadores(data)
             print("Indicadores calculados correctamente.")  # Debug
 
-            # Filtrar los datos para mostrar solo las últimas 12 horas
+            # Filtrar los datos para mostrar solo las últimas 24 horas
             ultima_hora = data['time'].iloc[-1]  # Última hora en los datos
-            inicio_ventana = ultima_hora - pd.Timedelta(hours=12)  # Hace 12 horas desde la última hora
+            inicio_ventana = ultima_hora - pd.Timedelta(hours=24)  # Hace 24 horas desde la última hora
             data_filtrada = data[data['time'] >= inicio_ventana]  # Filtrar datos
 
             # Crear una nueva figura y ejes
@@ -134,14 +134,16 @@ class AplicacionTrading:
 
             # Formatear el eje x para mostrar horas
             ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
-            ax.xaxis.set_major_locator(mdates.HourLocator(interval=1))
+            ax.xaxis.set_major_locator(mdates.HourLocator(interval=2))
 
             # Rotar etiquetas del eje x
             plt.xticks(rotation=45)
 
             # Añadir leyenda
             ax.legend()
-            plt.tight_layout()
+
+            # Ajustar el diseño de la figura manualmente
+            plt.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.2)
 
             # Crear el canvas y empaquetarlo en el frame
             canvas = FigureCanvasTkAgg(fig, master=ventana_actual["frame_graficos"])
@@ -177,75 +179,72 @@ class AplicacionTrading:
 
     def actualizar_grafico(self, ventana_actual, divisa, timeframe):
         """Actualiza el gráfico con nuevos datos."""
-        def _actualizar():
-            try:
-                # Obtener datos actualizados del mercado
-                data = self.indicadores.obtener_datos(divisa, timeframe, 100)
-                if data.empty:
-                    raise ValueError("No se obtuvieron datos del servidor. Verifica el símbolo y el timeframe.")
+        try:
+            # Obtener datos actualizados del mercado
+            data = self.indicadores.obtener_datos(divisa, timeframe, 100)
+            if data.empty:
+                raise ValueError("No se obtuvieron datos del servidor. Verifica el símbolo y el timeframe.")
 
-                # Calcular indicadores
-                data = self.indicadores.calcular_indicadores(data)
+            # Calcular indicadores
+            data = self.indicadores.calcular_indicadores(data)
 
-                # Filtrar los datos para mostrar solo las últimas 12 horas
-                ultima_hora = data['time'].iloc[-1]  # Última hora en los datos
-                inicio_ventana = ultima_hora - pd.Timedelta(hours=12)  # Hace 12 horas desde la última hora
-                data_filtrada = data[data['time'] >= inicio_ventana]  # Filtrar datos
+            # Filtrar los datos para mostrar solo las últimas 24 horas
+            ultima_hora = data['time'].iloc[-1]  # Última hora en los datos
+            inicio_ventana = ultima_hora - pd.Timedelta(hours=24)  # Hace 24 horas desde la última hora
+            data_filtrada = data[data['time'] >= inicio_ventana]  # Filtrar datos
 
-                # Obtener el gráfico existente
-                grafico = ventana_actual["graficos"][divisa]
-                ax = grafico["ax"]
-                canvas = grafico["canvas"]
+            # Obtener el gráfico existente
+            grafico = ventana_actual["graficos"][divisa]
+            ax = grafico["ax"]
+            canvas = grafico["canvas"]
 
-                # Limpiar el eje antes de volver a dibujar
-                ax.clear()
+            # Limpiar el eje antes de volver a dibujar
+            ax.clear()
 
-                # Dibujar el gráfico actualizado
-                ax.plot(data_filtrada['time'], data_filtrada['close'], label="Precio", color='black')
-                ax.plot(data_filtrada['time'], data_filtrada['EMA_8'], label="EMA 8", color='orange')
-                ax.plot(data_filtrada['time'], data_filtrada['EMA_21'], label="EMA 21", color='green')
-                ax.plot(data_filtrada['time'], data_filtrada['EMA_100'], label="EMA 100", color='red')
+            # Dibujar el gráfico actualizado
+            ax.plot(data_filtrada['time'], data_filtrada['close'], label="Precio", color='black')
+            ax.plot(data_filtrada['time'], data_filtrada['EMA_8'], label="EMA 8", color='orange')
+            ax.plot(data_filtrada['time'], data_filtrada['EMA_21'], label="EMA 21", color='green')
+            ax.plot(data_filtrada['time'], data_filtrada['EMA_100'], label="EMA 100", color='red')
 
-                # Agregar el símbolo de la divisa en el gráfico
-                ax.text(
-                    0.02, 0.95, f"Símbolo: {divisa}", transform=ax.transAxes,
-                    fontsize=9, color='blue', backgroundcolor='white', alpha=0.8
+            # Agregar el símbolo de la divisa en el gráfico
+            ax.text(
+                0.02, 0.95, f"Símbolo: {divisa}", transform=ax.transAxes,
+                fontsize=9, color='blue', backgroundcolor='white', alpha=0.8
+            )
+
+            # Formatear el eje x para mostrar horas
+            ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+            ax.xaxis.set_major_locator(mdates.HourLocator(interval=2))
+
+            # Rotar etiquetas del eje x
+            plt.xticks(rotation=45)
+
+            # Añadir leyenda
+            ax.legend()
+            plt.tight_layout()
+
+            # Redibujar el canvas
+            canvas.draw()
+
+            # Verificar si hay un cruce de indicadores
+            ultima_senal = data['Signal'].iloc[-1]
+            signal_change = data['Signal_Change'].iloc[-1]
+
+            if signal_change:
+                # Ejecutar la corrutina en el bucle de eventos de asyncio
+                future = asyncio.run_coroutine_threadsafe(
+                    self.logica.enviar_alerta(ultima_senal, divisa), self.loop
                 )
+                # Manejar el futuro para evitar advertencias
+                future.result()  # Esto espera a que la corrutina termine
 
-                # Formatear el eje x para mostrar horas
-                ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
-                ax.xaxis.set_major_locator(mdates.HourLocator(interval=1))
+            # Programar la próxima actualización
+            self.root.after(self.intervalo_actualizacion, lambda: self.actualizar_grafico(ventana_actual, divisa, timeframe))
 
-                # Rotar etiquetas del eje x
-                plt.xticks(rotation=45)
+        except Exception as e:
+            messagebox.showerror("Error", f"Se produjo un error: {str(e)}")
 
-                # Añadir leyenda
-                ax.legend()
-                plt.tight_layout()
-
-                # Redibujar el canvas
-                canvas.draw()
-
-                # Verificar si hay un cruce de indicadores
-                ultima_senal = data['Signal'].iloc[-1]
-                signal_change = data['Signal_Change'].iloc[-1]
-
-                if signal_change:
-                    # Ejecutar la corrutina en el bucle de eventos de asyncio
-                    future = asyncio.run_coroutine_threadsafe(
-                        self.logica.enviar_alerta(ultima_senal, divisa), self.loop
-                    )
-                    # Manejar el futuro para evitar advertencias
-                    future.result()  # Esto espera a que la corrutina termine
-
-            except Exception as e:
-                messagebox.showerror("Error", f"Se produjo un error: {str(e)}")
-            finally:
-                # Programar la próxima actualización
-                self.root.after(self.intervalo_actualizacion, lambda: self.actualizar_grafico(ventana_actual, divisa, timeframe))
-
-        # Ejecutar la actualización en un hilo separado
-        threading.Thread(target=_actualizar, daemon=True).start()
 if __name__ == "__main__":
     root = tk.Tk()
     app = AplicacionTrading(root)
