@@ -1,11 +1,15 @@
+#    Este script no tiene que ver propiamente con el programa principal
+#    simplemente es para verificar el funcionamiento del bot, que lleguen los mensajes
+#    al ejecutar este fragmento, deberia llegarte mensaje para verificar el funcionamiento del bot y el grupo
+
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
 # Token del bot
-TOKEN = "7588171636:AAEc49zWi2e2Kt0wbECHluto0qk-vmXrWnk"
+TOKEN = "Token del BOT"
 
 # Lista de IDs autorizados (incluye tu propio ID aquí)
-autorizados = [541162744923, 5432151644]
+autorizados = [] #Miembros del chatBot
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Maneja el comando /start."""
