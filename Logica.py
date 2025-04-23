@@ -14,7 +14,7 @@ import tempfile
 import os
 from datetime import datetime
 import matplotlib
-matplotlib.use('Agg')  # Usar el backend 'Agg' para evitar problemas con hilos
+matplotlib.use('Agg') 
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
@@ -27,7 +27,7 @@ class Logica:
         """Inicializa la lógica del bot de trading."""
         # Configurar el bot de Telegram
         request = HTTPXRequest()
-        self.bot = Bot(token="7975954346:AAGZml5vbuT5cTt6d2i9z11MvqoltEHfbWM", request=request)
+        self.bot = Bot(token="token de tu bot", request=request)
         
         self.ultima_senal_enviada = None  # Última señal enviada
         self.mensaje_queue = queue.Queue()  # Cola de mensajes
@@ -194,11 +194,11 @@ class Logica:
                 try:
                     if isinstance(mensaje, tuple):  # Si es un archivo
                         archivo, ruta_grafico = mensaje
-                        await self.bot.send_photo(chat_id="-4731258133", photo=archivo)
+                        await self.bot.send_photo(chat_id="Tu chat ID", photo=archivo)
                         logging.info("Gráfico enviado a Telegram.")
                         archivo.close()  # Cerrar el archivo
                     else:  # Si es un mensaje de texto
-                        await self.bot.send_message(chat_id="-4731258133", text=mensaje)
+                        await self.bot.send_message(chat_id="Tu chat ID", text=mensaje)
                         logging.info(f"Mensaje enviado a Telegram: {mensaje}")
                 except Exception as e:
                     logging.error(f"Error enviando mensaje o archivo por Telegram: {e}")
