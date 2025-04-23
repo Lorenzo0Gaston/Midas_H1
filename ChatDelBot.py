@@ -1,8 +1,8 @@
 from telegram import Bot
 
 # Token del bot y chat_id
-TOKEN = "7975954346:AAGZml5vbuT5cTt6d2i9z11MvqoltEHfbWM"
-CHAT_ID = "-4731258133"
+TOKEN = "TOKEN"
+CHAT_ID = "Chat ID"
 
 async def send_message():
     try:
