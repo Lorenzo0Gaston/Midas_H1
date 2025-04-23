@@ -1,0 +1,7 @@
+En este proyecto, "Midas_H1" es un programa el cual se conecta a MetaTrader5 para obtener datos en tiempo real, con una actualizacion de cada 5 segundos. 
+Los mismos los procesa y grafica en una ventana nueva a cada divisa ingresada.
+Ademas de agregar los indicadores de EMA's en los cuales se muesta la tendencia en la bolsa, y mediante otros 2 indicadores y por mensaje de telegram a 
+  un bot da alerta de comprar o vender dicha divisa. Por otra parte en una carpeta dentro de la maquina donde se ejecuta el programa guarda los graficos 
+  indicando la divisa la fecha y hora en que se dio el alerta.
+
+Un programa sensillo medianamente efectivo ya que esta sujeto a valores no controlados, aletorios, y de volatilidad del mercado o no, dependiendo de situaciones geopoliticas
